@@ -21,7 +21,6 @@ namespace TitleSrv
         {
             InitializeComponent();
         }
-
         private void Form1_Load(object sender, EventArgs e)
         {
             // button1_Click(new object(), new EventArgs());
@@ -52,7 +51,7 @@ namespace TitleSrv
                     LogWriter("Playlist directory is empty");
                 }
 
-                label5.Text = PlayList.Length.ToString();
+                //label5.Text = PlayList.Length.ToString();
 
                 foreach (string Pspl in PlayList)
                 {
@@ -94,24 +93,12 @@ namespace TitleSrv
                         int ClipIndx = 1;
                         foreach (XmlNode Nd in Items)
                         {
-                            label6.Text = (Items.Count - ClipIndx).ToString();
+                            //label6.Text = (Items.Count - ClipIndx).ToString();
                             ClipIndx++;
                             //Check Clips has CG
                             if (Nd["graphics"] != null)
                             {
                                  string Videofile = Nd["videofile"].InnerText;
-
-
-                              
-
-
-
-
-
-
-
-
-
 
 
                               
@@ -467,8 +454,8 @@ namespace TitleSrv
         }
         protected void Overlay(string CleanVideo, string OverlayFiles, string Filters, string OutFile)
         {
-            label3.Text = DateTime.Now.ToString();
-            label4.Text = "";
+            //label3.Text = DateTime.Now.ToString();
+            //label4.Text = "";
             LogWriter("Start Create Video");
             //ffmpeg64 -i 4.mp4 -i title.png -i title2.png -i title3.png -filter_complex "[0:v][1:v] overlay=10:10:enable='between(t,1,4)' [tmp]; [tmp][2:v] overlay=20:20:enable='between(t,5,8)' [tmp2];[tmp2][3:v] overlay=20:20:enable='between(t,9,13)'" output4.mp4
             Process proc = new Process();
@@ -485,7 +472,7 @@ namespace TitleSrv
             OutFile = OutFile.Replace(".MP4", "_CG.MP4").Replace(".mp4", "_CG.mp4");
             proc.StartInfo.Arguments = "  -i " + "  \"" + CleanVideo + "\"  " + OverlayFiles + "  -filter_complex  " + "\"" + Filters + "\"" + "  -vb 12M   -y  " + "   \"" + OutFile + "\"";
 
-            label1.Text = OutFile;
+           // label1.Text = OutFile;
             //  textBox1.Text = proc.StartInfo.Arguments;
             proc.StartInfo.RedirectStandardError = true;
             proc.StartInfo.UseShellExecute = false;
@@ -508,7 +495,7 @@ namespace TitleSrv
                 //Application.DoEvents();
             }
             proc.Close();
-            label4.Text = DateTime.Now.ToString();
+          //  label4.Text = DateTime.Now.ToString();
             LogWriter("End Create Video");
         }
         protected Bitmap GenerateImage(Bitmap BackImage, string Text, int Width, int Height, int FontSize, string FontName, string ColorCode, int IndentLeft, int IndentTop, FontStyle FntStyle, bool IsHeader)
@@ -628,7 +615,7 @@ namespace TitleSrv
             button1.BackColor = Color.Red;
             richTextBox1.Text = "";
 
-            label2.Text = DateTime.Now.ToString();
+            //label2.Text = DateTime.Now.ToString();
 
 
             ClearDirectory(ConfigurationSettings.AppSettings["OUTPUT"].ToString().Trim());
@@ -693,7 +680,6 @@ namespace TitleSrv
             { }
 
         }
-
         private void Form1_Shown(object sender, EventArgs e)
         {
             button1_Click(null, null);
