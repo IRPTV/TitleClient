@@ -17,6 +17,7 @@ namespace TitleSrv
 {
     public partial class Form1 : Form
     {
+        string _Pspl = "";
         public Form1()
         {
             InitializeComponent();
@@ -27,244 +28,166 @@ namespace TitleSrv
         }
         protected void ProcessTitles()
         {
-            timer1.Enabled = false;
 
-            string DateTimeStr = string.Format("{0:0000}", DateTime.Now.Year) + "-" + string.Format("{0:00}", DateTime.Now.Month) + "-" + string.Format("{0:00}", DateTime.Now.Day);
+            string TmpRoot = Path.GetDirectoryName(Application.ExecutablePath) + "\\";
+            XmlDocument XDoc = new XmlDocument();
+            string XmlPath = _Pspl;
 
-            string OutPutDir = ConfigurationSettings.AppSettings["OUTPUT"].ToString().Trim();
+            StreamReader S = new StreamReader(_Pspl);
+            string T = S.ReadToEnd();
+            T = T.Replace("'", "'");
+            T = T.Replace("’", "'");
+            T = T.Replace("“", "");
+            T = T.Replace("”", "");
 
+            S.Close();
+            StreamWriter SW = new StreamWriter(_Pspl);
+            SW.Write(T);
+            SW.Close();
 
-
-            string DirPathDest = ConfigurationSettings.AppSettings["CLEANVIDEOCHECK"].ToString().Trim();
-            bool CLEANVIDEOCHECKEXIST = false;
-            if (Directory.Exists(DirPathDest))
+            LogWriter("PlayList: " + _Pspl);
+            if (File.Exists(XmlPath))
             {
-                CLEANVIDEOCHECKEXIST = true;
-            }
+                XDoc.Load(XmlPath);
 
-            if (CLEANVIDEOCHECKEXIST)
-            {
 
-                string[] PlayList = Directory.GetFiles(ConfigurationSettings.AppSettings["PSPSL"].ToString().Trim(), "*.pspl", SearchOption.AllDirectories);
-                if (PlayList.Length == 0)
+                //Load Clips
+                XmlNodeList Items = XDoc.GetElementsByTagName("clip");
+                int ClipIndx = 1;
+                foreach (XmlNode Nd in Items)
                 {
-                    LogWriter("Playlist directory is empty");
-                }
-
-                //label5.Text = PlayList.Length.ToString();
-
-                foreach (string Pspl in PlayList)
-                {
-                    string TmpRoot = Path.GetDirectoryName(Application.ExecutablePath) + "\\";
-                    XmlDocument XDoc = new XmlDocument();
-                    string XmlPath = Pspl;
-
-                    string[] Dirs = Pspl.Split("\\".ToCharArray());
-
-
-                    string ExportPath = OutPutDir + Dirs[Dirs.Length - 4] + "\\" + Dirs[Dirs.Length - 3] + "\\" + Dirs[Dirs.Length - 2] + "\\" + Dirs[Dirs.Length - 1].ToLower().Replace(".pspl", "");
-
-
-
-
-                    StreamReader S = new StreamReader(Pspl);
-                    string T = S.ReadToEnd();
-                    T = T.Replace("'", "'");
-                    T = T.Replace("’", "'");
-                    T = T.Replace("“", "");
-                    T = T.Replace("”", "");
-
-
-
-
-                    S.Close();
-                    StreamWriter SW = new StreamWriter(Pspl);
-                    SW.Write(T);
-                    SW.Close();
-
-                    LogWriter("PlayList: " + Pspl);
-                    if (File.Exists(XmlPath))
+                    //label6.Text = (Items.Count - ClipIndx).ToString();
+                    ClipIndx++;
+                    //Check Clips has CG
+                    if (Nd["graphics"] != null)
                     {
-                        XDoc.Load(XmlPath);
+                        string Videofile = Nd["videofile"].InnerText;
 
-
-                        //Load Clips
-                        XmlNodeList Items = XDoc.GetElementsByTagName("clip");
-                        int ClipIndx = 1;
-                        foreach (XmlNode Nd in Items)
+                        if (comboBox1.SelectedItem.ToString() == Videofile)
                         {
-                            //label6.Text = (Items.Count - ClipIndx).ToString();
-                            ClipIndx++;
-                            //Check Clips has CG
-                            if (Nd["graphics"] != null)
+
+                            if (File.Exists(Videofile))
                             {
-                                 string Videofile = Nd["videofile"].InnerText;
+                                LogWriter("Video: " + Videofile);
+                                XmlNodeList GItems = Nd["graphics"].GetElementsByTagName("gitem");
 
 
-                              
-                                if (File.Exists(Videofile))
+
+                                Title Ttl = new Title();
+                                List<Title> TtlList = new List<Title>();
+
+
+                                //Create List of CG items:
+                                foreach (XmlNode GNode in GItems)
                                 {
-                                    if (!Directory.Exists(ExportPath))
+                                    #region CreateTitleObject
+                                    if (GNode["com"].InnerText == "2")
                                     {
-                                        Directory.CreateDirectory(ExportPath);
+                                        Ttl = new Title();
+                                        Ttl.Start = int.Parse(GNode["timecode"].InnerText);
+                                        if (GNode["arguments"].GetElementsByTagName("Header")[0] != null)
+                                        {
+
+                                            Ttl.Header = GNode["arguments"].GetElementsByTagName("Header")[0].InnerText;
+                                        }
+                                        if (GNode["arguments"].GetElementsByTagName("Line1")[0] != null)
+                                        {
+                                            Ttl.Line1 = GNode["arguments"].GetElementsByTagName("Line1")[0].InnerText;
+                                        }
+                                        if (GNode["arguments"].GetElementsByTagName("Line2")[0] != null)
+                                        {
+                                            if (GNode["arguments"].GetElementsByTagName("Line2")[0].InnerText.Trim().Length > 1)
+                                            {
+                                                Ttl.Line2 = GNode["arguments"].GetElementsByTagName("Line2")[0].InnerText;
+                                            }
+                                        }
+
+                                        if (GNode["name"] != null)
+                                        {
+                                            Ttl.Type = GNode["name"].InnerText;
+                                        }
                                     }
-                                    if (!File.Exists(ExportPath + "\\" + Path.GetFileName(Videofile)))
+
+                                    if (GNode["com"].InnerText == "6")
+                                    {
+                                        Ttl.End = int.Parse(GNode["timecode"].InnerText);
+                                        TtlList.Add(Ttl);
+                                    }
+                                    #endregion
+
+                                }
+
+                                if (!Directory.Exists(TmpRoot + "\\TMP\\"))
+                                {
+                                    Directory.CreateDirectory(TmpRoot + "\\TMP\\");
+                                    LogWriter("TMP directory Created");
+
+                                }
+                                string[] TmpFiles = Directory.GetFiles(TmpRoot + "\\TMP\\");
+                                foreach (string item in TmpFiles)
+                                {
+                                    try
+                                    {
+                                        File.Delete(item);
+                                    }
+                                    catch
                                     {
 
+                                    }
+                                    LogWriter("TMP Directory Cleaned");
+                                }
 
-                                        LogWriter("Video: " + Videofile);
-                                        XmlNodeList GItems = Nd["graphics"].GetElementsByTagName("gitem");
-
-
-
-                                        //2014-11-19 
-                                        //Save graphic node for each video file for story board software
-                                        StreamWriter strW = new StreamWriter(ExportPath + "\\" + Path.GetFileName(Videofile).Replace(".mp4", "_CG.xml").Replace(".mpg", "_CG.xml"));
-                                        strW.Write(Nd["graphics"].InnerXml);
-                                        strW.Close();
-
-
-
-
-                                        Title Ttl = new Title();
-                                        List<Title> TtlList = new List<Title>();
+                                //Local Video File:
+                                string TmpFile = TmpRoot + "\\TMP\\" + Path.GetFileName(Videofile);
+                                LogWriter("Start Local File:");
+                                LogWriter("From:" + Videofile);
+                                LogWriter("To:" + TmpFile);
+                                File.Copy(Videofile, TmpFile, true);
+                                LogWriter("End Local File");
+                                string ListImages = "";
+                                string ListFilters = "";
 
 
-                                        //Create List of CG items:
-                                        foreach (XmlNode GNode in GItems)
-                                        {
-                                            #region CreateTitleObject
-                                            if (GNode["com"].InnerText == "2")
-                                            {
-                                                Ttl = new Title();
-                                                Ttl.Start = int.Parse(GNode["timecode"].InnerText);
-                                                if (GNode["arguments"].GetElementsByTagName("Header")[0] != null)
-                                                {
+                                //Create Script:
+                                int i = 1;
+                                foreach (Title item in TtlList)
+                                {
+                                    Bitmap bmp = LoadCgConfig(item);
+                                    //Create Image of CG Item:
+                                    bmp.Save(TmpRoot + "\\TMP\\" + "Title" + i + ".png");
+                                    LogWriter("Image Saved: " + TmpRoot + "\\TMP\\" + "Title" + i + ".png");
+                                    ListImages += " -i " + " \"" + TmpRoot + "\\TMP\\" + "Title" + i + ".png" + "\" ";
 
-                                                    Ttl.Header = GNode["arguments"].GetElementsByTagName("Header")[0].InnerText;
-                                                }
-                                                if (GNode["arguments"].GetElementsByTagName("Line1")[0] != null)
-                                                {
-                                                    Ttl.Line1 = GNode["arguments"].GetElementsByTagName("Line1")[0].InnerText;
-                                                }
-                                                if (GNode["arguments"].GetElementsByTagName("Line2")[0] != null)
-                                                {
-                                                    if (GNode["arguments"].GetElementsByTagName("Line2")[0].InnerText.Trim().Length > 1)
-                                                    {
-                                                        Ttl.Line2 = GNode["arguments"].GetElementsByTagName("Line2")[0].InnerText;
-                                                    }
-                                                }
+                                    //[0:v][1:v] overlay=10:10:enable='between(t,1,4)' [tmp]; [tmp][2:v] overlay=20:20:enable='between(t,5,8)' [tmp2];[tmp2][3:v] overlay=20:20:enable='between(t,9,13)'
 
-                                                if (GNode["name"] != null)
-                                                {
-                                                    Ttl.Type = GNode["name"].InnerText;
-                                                }
-                                            }
-
-                                            if (GNode["com"].InnerText == "6")
-                                            {
-                                                Ttl.End = int.Parse(GNode["timecode"].InnerText);
-                                                TtlList.Add(Ttl);
-                                            }
-                                            #endregion
-
-                                        }
-
-                                        if (!Directory.Exists(TmpRoot + "\\TMP\\"))
-                                        {
-                                            Directory.CreateDirectory(TmpRoot + "\\TMP\\");
-                                            LogWriter("TMP directory Created");
-
-                                        }
-                                        string[] TmpFiles = Directory.GetFiles(TmpRoot + "\\TMP\\");
-                                        foreach (string item in TmpFiles)
-                                        {
-                                            try
-                                            {
-                                                File.Delete(item);
-                                            }
-                                            catch
-                                            {
-
-                                            }
-                                            LogWriter("TMP Directory Cleaned");
-                                        }
-                                        // Directory.Delete(TmpRoot + "\\TMP\\");
-
-                                        //if (!Directory.Exists(TmpRoot + "\\TMP\\"))
-                                        //{
-
-                                        //}
-                                        //Local Video File:
-                                        string TmpFile = TmpRoot + "\\TMP\\" + Path.GetFileName(Videofile);
-                                        LogWriter("Start Local File:");
-                                        LogWriter("From:" + Videofile);
-                                        LogWriter("To:" + TmpFile);
-                                        File.Copy(Videofile, TmpFile, true);
-                                        LogWriter("End Local File");
-                                        string ListImages = "";
-                                        string ListFilters = "";
-
-
-                                        //Create Script:
-                                        int i = 1;
-                                        foreach (Title item in TtlList)
-                                        {
-                                            Bitmap bmp = LoadCgConfig(item);
-                                            //Create Image of CG Item:
-                                            bmp.Save(TmpRoot + "\\TMP\\" + "Title" + i + ".png");
-                                            LogWriter("Image Saved: " + TmpRoot + "\\TMP\\" + "Title" + i + ".png");
-                                            ListImages += " -i " + " \"" + TmpRoot + "\\TMP\\" + "Title" + i + ".png" + "\" ";
-
-                                            //[0:v][1:v] overlay=10:10:enable='between(t,1,4)' [tmp]; [tmp][2:v] overlay=20:20:enable='between(t,5,8)' [tmp2];[tmp2][3:v] overlay=20:20:enable='between(t,9,13)'
-
-                                            if (i == 1)
-                                            {
-                                                ListFilters += "[0:v][1:v] overlay=0:0:enable='between(t," + Frame2Sec((double)item.Start) + "," + Frame2Sec((double)item.End) + ")'";
-                                            }
-                                            else
-                                            {
-                                                ListFilters += " [tmp" + (i - 1) + "]; [tmp" + (i - 1) + "][" + i + ":v] overlay=0:0:enable='between(t," + Frame2Sec((double)item.Start) + "," + Frame2Sec((double)item.End) + ")' ";
-                                            }
-                                            //Overlay alpha video on clean video                           
-                                            i++;
-                                        }
-
-
-                                        Overlay(TmpFile, ListImages, ListFilters, ExportPath + "\\" + Path.GetFileName(Videofile));
-
-                                        //Copy Final Video to Dest directory:
-
+                                    if (i == 1)
+                                    {
+                                        ListFilters += "[0:v][1:v] overlay=0:0:enable='between(t," + Frame2Sec((double)item.Start) + "," + Frame2Sec((double)item.End) + ")'";
                                     }
                                     else
                                     {
-                                        LogWriter("Video Exist In OutPut Directory: " + Videofile);
+                                        ListFilters += " [tmp" + (i - 1) + "]; [tmp" + (i - 1) + "][" + i + ":v] overlay=0:0:enable='between(t," + Frame2Sec((double)item.Start) + "," + Frame2Sec((double)item.End) + ")' ";
                                     }
+                                    //Overlay alpha video on clean video                           
+                                    i++;
                                 }
-                                else
-                                {
-                                    LogWriter("Clean Video Not Exist:");
-                                    LogWriter(Videofile);
-                                }
+
+
+                                Overlay(TmpFile, ListImages, ListFilters, saveFileDialog1.FileName);
+
+                                //Copy Final Video to Dest directory:
+
+                            }
+                            else
+                            {
+                                LogWriter("Clean Video Not Exist:");
                             }
                         }
 
                     }
-                    File.Delete(Pspl);
-                    LogWriter("Delete PlayList:" + Pspl);
                 }
-
-
-                processDirectory(OutPutDir, "*.mp4");
-                processDirectory(OutPutDir, "*.xml");
-                processDirectory(ConfigurationSettings.AppSettings["PSPSL"].ToString().Trim(), "*.pspl");
-                timer1.Enabled = true;
             }
-            else
-            {
-                timer1.Enabled = true;
-                LogWriter("Software could not connect to:" + ConfigurationSettings.AppSettings["CLEANVIDEOCHECK"].ToString().Trim());
-            }
+
         }
         protected Bitmap LoadCgConfig(Title Ttl)
         {
@@ -452,28 +375,25 @@ namespace TitleSrv
         {
             return Math.Floor(Farmes / 25);
         }
-        protected void Overlay(string CleanVideo, string OverlayFiles, string Filters, string OutFile)
+        private void Overlay(string CleanVideo, string OverlayFiles, string Filters, string OutFile)
         {
-            //label3.Text = DateTime.Now.ToString();
-            //label4.Text = "";
             LogWriter("Start Create Video");
+            
             //ffmpeg64 -i 4.mp4 -i title.png -i title2.png -i title3.png -filter_complex "[0:v][1:v] overlay=10:10:enable='between(t,1,4)' [tmp]; [tmp][2:v] overlay=20:20:enable='between(t,5,8)' [tmp2];[tmp2][3:v] overlay=20:20:enable='between(t,9,13)'" output4.mp4
             Process proc = new Process();
 
-            //if (Environment.Is64BitOperatingSystem)
-            //{
+            if (Environment.Is64BitOperatingSystem)
+            {
             proc.StartInfo.FileName = Path.GetDirectoryName(Application.ExecutablePath) + "//ffmpeg";
-            //}
-            //else
-            //{
-            //    proc.StartInfo.FileName = Path.GetDirectoryName(Application.ExecutablePath) + "//ffmpeg32";
-            //}
+            }
+            else
+            {
+                proc.StartInfo.FileName = Path.GetDirectoryName(Application.ExecutablePath) + "//ffmpeg32";
+            }
 
             OutFile = OutFile.Replace(".MP4", "_CG.MP4").Replace(".mp4", "_CG.mp4");
             proc.StartInfo.Arguments = "  -i " + "  \"" + CleanVideo + "\"  " + OverlayFiles + "  -filter_complex  " + "\"" + Filters + "\"" + "  -vb 12M   -y  " + "   \"" + OutFile + "\"";
 
-           // label1.Text = OutFile;
-            //  textBox1.Text = proc.StartInfo.Arguments;
             proc.StartInfo.RedirectStandardError = true;
             proc.StartInfo.UseShellExecute = false;
             proc.StartInfo.CreateNoWindow = true;
@@ -484,19 +404,10 @@ namespace TitleSrv
             string line;
             while ((line = reader.ReadLine()) != null)
             {
-                //if (richTextBox1.Lines.Length > 5)
-                //{
-                //    richTextBox1.Text = "";
-                //}
                 LogWriter(line);
-                //richTextBox1.Text += (line) + " \n";
-                //richTextBox1.SelectionStart = richTextBox1.Text.Length;
-                //richTextBox1.ScrollToCaret();
-                //Application.DoEvents();
             }
             proc.Close();
-          //  label4.Text = DateTime.Now.ToString();
-            LogWriter("End Create Video");
+            LogWriter("End Create Video");            
         }
         protected Bitmap GenerateImage(Bitmap BackImage, string Text, int Width, int Height, int FontSize, string FontName, string ColorCode, int IndentLeft, int IndentTop, FontStyle FntStyle, bool IsHeader)
         {
@@ -508,14 +419,6 @@ namespace TitleSrv
             Text = Text.Replace("�", "");
 
 
-            //StreamWriter St = new StreamWriter("c:\\1.txt");
-            //St.Write(Text);
-            //St.Close();
-
-            //richTextBox1.Text += Text;
-            //MessageBox.Show(Text);
-
-
 
             float fontSize = FontSize;
 
@@ -523,8 +426,6 @@ namespace TitleSrv
             Graphics g = Graphics.FromImage(bmp);
 
 
-            //      TextFormatFlags flags = TextFormatFlags.Left |
-            //TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak;
 
             //this will center align our text at the bottom of the image
             StringFormat sf = new StringFormat();
@@ -615,26 +516,11 @@ namespace TitleSrv
             button1.BackColor = Color.Red;
             richTextBox1.Text = "";
 
-            //label2.Text = DateTime.Now.ToString();
-
-
-            ClearDirectory(ConfigurationSettings.AppSettings["OUTPUT"].ToString().Trim());
-
             ProcessTitles();
-
-
 
             button1.ForeColor = Color.White;
             button1.Text = "Start";
             button1.BackColor = Color.Navy;
-
-        }
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            timer1.Enabled = false;
-            button1_Click(new object(), new EventArgs());
-            timer1.Enabled = true;
-
         }
         private static void processDirectory(string startLocation, string SearchPattern)
         {
@@ -682,7 +568,66 @@ namespace TitleSrv
         }
         private void Form1_Shown(object sender, EventArgs e)
         {
-            button1_Click(null, null);
+            //button1_Click(null, null);
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            openFileDialog1.ShowDialog();
+            
+        }
+        private void openFileDialog1_FileOk(object sender, CancelEventArgs e)
+        {
+            _Pspl = openFileDialog1.FileName;
+            comboBox1.Items.Clear();
+            XmlDocument XDoc = new XmlDocument();
+            string XmlPath = openFileDialog1.FileName;
+            StreamReader S = new StreamReader(openFileDialog1.FileName);
+            string T = S.ReadToEnd();
+            T = T.Replace("'", "'");
+            T = T.Replace("’", "'");
+            T = T.Replace("“", "");
+            T = T.Replace("”", "");
+
+            S.Close();
+            StreamWriter SW = new StreamWriter(openFileDialog1.FileName);
+            SW.Write(T);
+            SW.Close();
+
+            LogWriter("PlayList: " + openFileDialog1.FileName);
+            if (File.Exists(XmlPath))
+            {
+                XDoc.Load(XmlPath);
+                //Load Clips
+                XmlNodeList Items = XDoc.GetElementsByTagName("clip");
+                int ClipIndx = 1;
+                foreach (XmlNode Nd in Items)
+                {
+                    ClipIndx++;
+                    //Check Clips has CG
+                    if (Nd["graphics"] != null)
+                    {
+                        string Videofile = Nd["videofile"].InnerText;
+                        comboBox1.Items.Add(Videofile);
+                    }
+                }
+                if(comboBox1.Items.Count>0)
+                {
+                    comboBox1.SelectedIndex = 0;
+                }
+            }
+        }
+        private void saveFileDialog1_FileOk(object sender, CancelEventArgs e)
+        {
+            
+        }
+        private void button3_Click(object sender, EventArgs e)
+        {
+            saveFileDialog1.FileName = "FILENAME";
+            saveFileDialog1.DefaultExt = "mp4";
+            saveFileDialog1.Filter = "MP4 files (*.mp4)|*.mp4";
+            saveFileDialog1.AddExtension = true;
+            saveFileDialog1.RestoreDirectory = true;
+            saveFileDialog1.ShowDialog();
         }
     }
 }

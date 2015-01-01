@@ -68,9 +68,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <None Include="App.config">
-      <SubType>Designer</SubType>
-    </None>
     <None Include="CG\CGCONFIG.tpil">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <SubType>Designer</SubType>
